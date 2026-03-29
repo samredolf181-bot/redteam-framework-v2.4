@@ -1448,3 +1448,14 @@ The developers assume no liability for misuse. Always obtain written authorizati
 ---
 
 *RTF v2.0 — RedTeam Framework — Enterprise RedTeam Platform*
+
+## v6.0 Additions
+
+- Workspaces API: `/api/v1/workspaces`
+- Evidence Vault API: `/api/v1/evidence`
+- Timeline API: `/api/v1/timeline`
+- AI Agent API: `/api/v1/agents`
+- Dossier API: `/api/v1/dossiers`
+- Plugin API: `/api/v1/plugins`
+
+Use `rtf/scripts/install_v6.sh` to bootstrap the v6 schema and directories.

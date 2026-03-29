@@ -1,0 +1,19 @@
+version: '3.9'
+services:
+  rtf-core:
+    build: ./rtf
+    ports: ["5000:5000"]
+    volumes: ["./rtf/data:/app/data","./rtf/plugins:/app/plugins"]
+    depends_on: [redis, neo4j]
+  rtf-titan:
+    build: ./rtf
+    command: uvicorn framework.titan.gateway:app --host 0.0.0.0 --port 8000
+    ports: ["8000:8000"]
+    depends_on: [redis]
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  neo4j:
+    image: neo4j:5-community
+    environment: ["NEO4J_AUTH=neo4j/rtf_password"]
+    ports: ["7474:7474","7687:7687"]

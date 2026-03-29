@@ -1,0 +1,8 @@
+name: digital_footprint_report_pipeline
+stages:
+  - name: intake
+    module: osint.whois_lookup
+  - name: enrichment
+    module: osint.theharvester
+  - name: report
+    module: reporting.summary

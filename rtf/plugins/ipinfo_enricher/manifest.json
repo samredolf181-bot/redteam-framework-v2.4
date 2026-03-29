@@ -1,0 +1,1 @@
+{"plugin_id":"ipinfo_enricher","name":"ipinfo_enricher","version":"1.0.0","description":"ipinfo_enricher plugin","author":"rtf","type":"datasource","entry_point":"plugin.py"}
