@@ -5,7 +5,7 @@
 
 ---
 
-## What's new in v2.0
+## What's new in v4.0 OMEGA-BLACK
 
 - **23 modules** across 9 categories (recon, osint, AD, cloud, web, crypto, wireless, post-exploitation, network)
 - **8 workflows** including `full_ad_compromise`, `identity_fusion`, `ssl_web_recon`, `cloud_audit`
@@ -15,6 +15,9 @@
 - **Enterprise modules**: Azure AD/Entra, GCP, LDAP, Shodan, SSL/TLS, credential spray, API security
 - **Parallel installer v2** with backup commands for 14+ failing tools and exponential backoff
 - **Professional reporting engine**: HTML, PDF, XLSX, Markdown, JSON with MITRE ATT&CK mapping
+- **OMEGA-BLACK engine fabric**: 12+ architecture engines wired into the existing loader, workflows, API, scheduler, and reporting layers
+- **Self-healing controls**: `rtf doctor`, `rtf fix`, `rtf validate`, and `rtf repair` for dependency, loader, and engine validation
+- **Neo4j-ready graph intelligence** with Person/Username/Email/Phone/Domain/Organization/Account/Repository/IP/Location/Device/Website/Document/Media entities
 
 ---
 
@@ -41,6 +44,10 @@ python rtf.py dashboard --port 5000
 
 # Generate the V4 architecture report
 python rtf.py upgrade analyze
+
+# Validate the OMEGA-BLACK architecture and self-healing layer
+python rtf.py validate
+python rtf.py doctor
 
 # Docker
 docker-compose up -d

@@ -20,6 +20,7 @@ from framework.core.config import config
 from framework.core.logger import get_logger
 from framework.db.database import db
 from framework.modules.loader import module_loader
+from framework.omega import omega_doctor, omega_registry
 from framework.registry.tool_registry import ToolCategory, tool_registry
 from framework.reporting.engine import Finding as ReportFinding, ReportEngine
 from framework.scheduler.scheduler import JobStatus, scheduler
@@ -187,31 +188,52 @@ def _infer_graph_entities(operation_id: str, result: Dict[str, Any], module_path
     output = result.get("output") or {}
     candidates: List[tuple[str, str, Dict[str, Any]]] = []
     findings = result.get("findings") or []
+
+    def _classify(field: str, value: str) -> Optional[str]:
+        lowered = field.lower()
+        if "@" in value or "email" in lowered:
+            return "Email"
+        if lowered in {"username", "candidate_username", "handle"}:
+            return "Username"
+        if lowered in {"phone", "mobile"}:
+            return "Phone"
+        if lowered in {"organization", "company"}:
+            return "Organization"
+        if lowered in {"repository", "repo"}:
+            return "Repository"
+        if lowered in {"location", "city", "country"}:
+            return "Location"
+        if lowered in {"device", "user_agent"}:
+            return "Device"
+        if lowered in {"website", "url"}:
+            return "Website"
+        if lowered in {"document", "file"}:
+            return "Document"
+        if lowered in {"media", "image", "avatar"}:
+            return "Media"
+        if lowered in {"ip", "host"} or value.replace('.', '').isdigit():
+            return "IP"
+        if "." in value and " " not in value and "/" not in value:
+            return "Domain"
+        return "Person"
+
     for finding in findings:
         target = finding.get("target")
         if not target:
             continue
-        entity_type = "Domain" if "." in target and " " not in target else "Person"
-        if target.replace(".", "").isdigit():
-            entity_type = "IP"
+        entity_type = _classify(finding.get("category", "target"), target)
         candidates.append((entity_type, target, {"title": finding.get("title"), "category": finding.get("category")}))
     if isinstance(output, dict):
         for key, value in output.items():
             if isinstance(value, str) and value:
-                if key in {"domain", "hostname", "target"}:
-                    candidates.append(("Domain", value, {"field": key}))
-                elif key in {"email", "candidate_email"}:
-                    candidates.append(("Email", value, {"field": key}))
-                elif key in {"username", "candidate_username"}:
-                    candidates.append(("Username", value, {"field": key}))
-                elif key in {"ip", "host"}:
-                    candidates.append(("IP", value, {"field": key}))
+                candidates.append((_classify(key, value), value, {"field": key}))
             elif isinstance(value, list):
                 for item in value[:10]:
-                    if isinstance(item, str) and "." in item:
-                        candidates.append(("Domain", item, {"field": key}))
+                    if isinstance(item, str) and item:
+                        candidates.append((_classify(key, item), item, {"field": key}))
     previous_node_id: Optional[str] = None
-    for entity_type, value, props in candidates[:30]:
+    primary_person_id: Optional[str] = None
+    for entity_type, value, props in candidates[:40]:
         node_id = _safe_node_id(entity_type, value)
         db.upsert_graph_node(
             node_id=node_id,
@@ -225,12 +247,40 @@ def _infer_graph_entities(operation_id: str, result: Dict[str, Any], module_path
             properties=props,
             tags=[module_path.split("/")[0]],
         )
-        if previous_node_id and previous_node_id != node_id:
+        if entity_type == "Person" and primary_person_id is None:
+            primary_person_id = node_id
+        relationship = "ASSOCIATED_WITH"
+        if primary_person_id and primary_person_id != node_id:
+            if entity_type == "Email":
+                relationship = "USES_EMAIL"
+            elif entity_type == "Phone":
+                relationship = "USES_PHONE"
+            elif entity_type == "Domain":
+                relationship = "ASSOCIATED_WITH"
+            elif entity_type == "Username":
+                relationship = "OWNS"
+            elif entity_type == "Location":
+                relationship = "POSTED_FROM"
+            elif entity_type in {"Repository", "Document", "Media", "Website"}:
+                relationship = "MENTIONED_IN"
+            edge_id = f"{primary_person_id}->{relationship}->{node_id}"
+            db.upsert_graph_edge(
+                edge_id=edge_id,
+                source_node_id=primary_person_id,
+                relationship=relationship,
+                target_node_id=node_id,
+                confidence=0.65,
+                source_module=module_path,
+                source_job_id=job_id,
+                operation_id=operation_id,
+                properties={"provenance": module_path},
+            )
+        elif previous_node_id and previous_node_id != node_id:
             edge_id = f"{previous_node_id}->{module_path}->{node_id}"
             db.upsert_graph_edge(
                 edge_id=edge_id,
                 source_node_id=previous_node_id,
-                relationship="ASSOCIATED_WITH",
+                relationship="CONNECTED_TO",
                 target_node_id=node_id,
                 confidence=0.6,
                 source_module=module_path,
@@ -338,12 +388,12 @@ def create_app() -> "FastAPI":
     @app.get("/health", tags=["system"])
     @v1.get("/health", tags=["system"])
     async def health():
-        return {"status": "ok", "framework": "RTF v2.0"}
+        return {"status": "ok", "framework": "RTF v4.0 OMEGA-BLACK", "doctor": omega_doctor.validate()}
 
     @app.get("/stats", tags=["system"])
     @v1.get("/stats", tags=["system"])
     async def stats():
-        return {"modules": len(module_loader.list_modules()), "tools": tool_registry.summary(), "jobs": scheduler.stats()}
+        return {"modules": len(module_loader.list_modules()), "tools": tool_registry.summary(), "jobs": scheduler.stats(), "omega": omega_doctor.validate()}
 
     @app.get("/modules", tags=["modules"])
     @v1.get("/modules", tags=["modules"])
@@ -515,6 +565,27 @@ def create_app() -> "FastAPI":
     @v1.get("/upgrade/report", tags=["upgrade"])
     async def upgrade_report(_auth: None = Depends(require_api_key)):
         return build_v4_upgrade_report()
+
+    @app.get("/omega/manifest", tags=["omega"])
+    @v1.get("/omega/manifest", tags=["omega"])
+    async def omega_manifest(_auth: None = Depends(require_api_key)):
+        module_loader.load_all()
+        return omega_registry.manifest()
+
+    @app.get("/omega/sources", tags=["omega"])
+    @v1.get("/omega/sources", tags=["omega"])
+    async def omega_sources(_auth: None = Depends(require_api_key)):
+        return omega_registry.source_catalog()
+
+    @app.get("/omega/doctor", tags=["omega"])
+    @v1.get("/omega/doctor", tags=["omega"])
+    async def omega_doctor_endpoint(_auth: None = Depends(require_api_key)):
+        return omega_doctor.diagnose()
+
+    @app.get("/omega/validate", tags=["omega"])
+    @v1.get("/omega/validate", tags=["omega"])
+    async def omega_validate(_auth: None = Depends(require_api_key)):
+        return omega_doctor.validate()
 
     @app.get("/titan/manifest", tags=["titan"])
     @v1.get("/titan/manifest", tags=["titan"])

@@ -138,3 +138,73 @@ try:
     EXTENDED_WORKFLOWS.update(EXTREME_WORKFLOWS)
 except Exception:
     EXTREME_WORKFLOWS = {}
+
+
+class OmegaSOCMINTWorkflow(Workflow):
+    name = "omega_socmint"
+    description = "15-stage OMEGA-BLACK SOCMINT pipeline with graph ingestion and threat scoring."
+
+    def steps(self):
+        from framework.modules.osint.identity_fusion import IdentityFusionModule
+        from framework.modules.osint.nexus_identity_pipeline import NexusIdentityPipelineModule
+        from framework.modules.osint.breach_correlation import BreachCorrelationModule
+        from framework.modules.post_exploitation.credential_intelligence import CredentialIntelligenceModule
+        from framework.modules.recon.casm_pipeline import CASMPipelineModule
+        return (
+            WorkflowBuilder(self.name)
+            .add_step("identity_fusion", IdentityFusionModule, required=True)
+            .add_step("nexus_identity_pipeline", NexusIdentityPipelineModule, required=False)
+            .add_step("breach_correlation", BreachCorrelationModule, transformer=lambda prev: {"query": self._seed_from(prev)}, required=False)
+            .add_step("credential_intelligence", CredentialIntelligenceModule, transformer=lambda prev: {"seed": self._seed_from(prev)}, required=False)
+            .add_step("casm_pipeline", CASMPipelineModule, transformer=lambda prev: {"target": self._domain_from(prev)}, required=False)
+            .build()
+            ._steps
+        )
+
+    @staticmethod
+    def _seed_from(prev):
+        if not prev or not prev.output:
+            return ""
+        return prev.output.get("username") or prev.output.get("query") or prev.output.get("email") or ""
+
+    @staticmethod
+    def _domain_from(prev):
+        if not prev or not prev.output:
+            return ""
+        return prev.output.get("domain") or prev.output.get("target") or ""
+
+
+class OmegaAutonomousLabWorkflow(Workflow):
+    name = "omega_autonomous_lab"
+    description = "Autonomous development loop for research, validation, repair planning, and reporting."
+
+    def steps(self):
+        from framework.modules.osint.nexus_identity_pipeline import NexusIdentityPipelineModule
+        from framework.modules.recon.casm_pipeline import CASMPipelineModule
+        from framework.modules.post_exploitation.credential_intelligence import CredentialIntelligenceModule
+        return (
+            WorkflowBuilder(self.name)
+            .add_step("research_seed", NexusIdentityPipelineModule, required=False)
+            .add_step("surface_revalidation", CASMPipelineModule, transformer=lambda prev: {"target": self._domain_from(prev)}, required=False)
+            .add_step("credential_review", CredentialIntelligenceModule, transformer=lambda prev: {"seed": self._seed_from(prev)}, required=False)
+            .build()
+            ._steps
+        )
+
+    @staticmethod
+    def _seed_from(prev):
+        if not prev or not prev.output:
+            return ""
+        return prev.output.get("username") or prev.output.get("domain") or ""
+
+    @staticmethod
+    def _domain_from(prev):
+        if not prev or not prev.output:
+            return ""
+        return prev.output.get("domain") or prev.output.get("target") or ""
+
+
+EXTENDED_WORKFLOWS.update({
+    "omega_socmint": OmegaSOCMINTWorkflow,
+    "omega_autonomous_lab": OmegaAutonomousLabWorkflow,
+})
