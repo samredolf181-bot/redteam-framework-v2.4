@@ -1,0 +1,1 @@
+{"plugin_id":"whoisxml_enricher","name":"whoisxml_enricher","version":"1.0.0","description":"whoisxml_enricher plugin","author":"rtf","type":"datasource","entry_point":"plugin.py"}

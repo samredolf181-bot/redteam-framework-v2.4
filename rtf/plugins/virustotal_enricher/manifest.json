@@ -1,0 +1,1 @@
+{"plugin_id":"virustotal_enricher","name":"virustotal_enricher","version":"1.0.0","description":"virustotal_enricher plugin","author":"rtf","type":"datasource","entry_point":"plugin.py"}

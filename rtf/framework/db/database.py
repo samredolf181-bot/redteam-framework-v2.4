@@ -77,6 +77,112 @@ CREATE TABLE IF NOT EXISTS console_sessions (
     title TEXT NOT NULL, transcript TEXT DEFAULT '', status TEXT DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS workspaces (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    client_name TEXT,
+    case_number TEXT,
+    status TEXT DEFAULT 'active',
+    classification TEXT DEFAULT 'CONFIDENTIAL',
+    description TEXT,
+    tags TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    closed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS evidence (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT REFERENCES workspaces(id),
+    title TEXT NOT NULL,
+    description TEXT,
+    type TEXT,
+    file_path TEXT,
+    original_url TEXT,
+    md5_hash TEXT,
+    sha256_hash TEXT,
+    file_size INTEGER,
+    mime_type TEXT,
+    tags TEXT,
+    linked_entities TEXT,
+    collector_name TEXT DEFAULT 'system',
+    created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_workspace ON evidence(workspace_id);
+CREATE TABLE IF NOT EXISTS custody_chain (
+    id TEXT PRIMARY KEY,
+    evidence_id TEXT REFERENCES evidence(id),
+    event_type TEXT,
+    actor TEXT,
+    timestamp TEXT DEFAULT (datetime('now')),
+    notes TEXT,
+    hash_verified INTEGER
+);
+CREATE TABLE IF NOT EXISTS timeline_events (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT REFERENCES workspaces(id),
+    timestamp TEXT,
+    event_type TEXT,
+    description TEXT,
+    source TEXT,
+    entity_value TEXT,
+    entity_type TEXT,
+    confidence REAL DEFAULT 0.5,
+    metadata TEXT,
+    tags TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_timeline_workspace ON timeline_events(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_timeline_timestamp ON timeline_events(timestamp);
+CREATE TABLE IF NOT EXISTS agent_sessions (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT REFERENCES workspaces(id),
+    mode TEXT,
+    seed TEXT,
+    seed_type TEXT,
+    status TEXT DEFAULT 'running',
+    max_depth INTEGER DEFAULT 3,
+    findings_count INTEGER DEFAULT 0,
+    pivots_taken INTEGER DEFAULT 0,
+    plan TEXT,
+    started_at TEXT DEFAULT (datetime('now')),
+    completed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS dossiers (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT REFERENCES workspaces(id),
+    type TEXT,
+    title TEXT,
+    classification TEXT DEFAULT 'CONFIDENTIAL',
+    status TEXT DEFAULT 'draft',
+    format TEXT,
+    file_path TEXT,
+    file_size INTEGER,
+    generated_at TEXT DEFAULT (datetime('now')),
+    regenerated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS plugins (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    version TEXT,
+    type TEXT,
+    description TEXT,
+    enabled INTEGER DEFAULT 1,
+    config TEXT,
+    installed_at TEXT DEFAULT (datetime('now')),
+    last_run TEXT,
+    error_count INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS workspace_notes (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT REFERENCES workspaces(id),
+    title TEXT,
+    content TEXT,
+    tags TEXT,
+    entity_mentions TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
 """
 
 
@@ -98,6 +204,11 @@ class Database:
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         with self._conn() as conn:
             conn.executescript(_CREATE)
+            try:
+                conn.execute("ALTER TABLE findings ADD COLUMN workspace_id TEXT")
+            except Exception:
+                pass
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_findings_workspace ON findings(workspace_id)")
         log.info(f"Database initialised at {db_path}")
 
     @contextmanager

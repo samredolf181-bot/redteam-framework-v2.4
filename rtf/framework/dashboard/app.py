@@ -155,6 +155,133 @@ def create_dashboard() -> "Flask":
     @app.route("/api/omega/manifest")
     def api_manifest(): return jsonify(build_titan_manifest())
 
+
+    @app.route("/api/v1/workspaces", methods=["GET"])
+    def list_workspaces():
+        from flask import request
+        from framework.core.workspace_manager import get_workspace_manager
+        return jsonify(get_workspace_manager().list(status=request.args.get("status")))
+
+    @app.route("/api/v1/workspaces", methods=["POST"])
+    def create_workspace():
+        from flask import request
+        from framework.core.workspace_manager import get_workspace_manager
+        return jsonify(get_workspace_manager().create(request.get_json(silent=True) or {}))
+
+    @app.route("/api/v1/workspaces/<wid>", methods=["GET", "PUT", "DELETE"])
+    def workspace_item(wid: str):
+        from flask import request
+        from framework.core.workspace_manager import get_workspace_manager
+        wm = get_workspace_manager()
+        if request.method == "GET":
+            item = wm.get(wid)
+            return (jsonify(item), 404) if not item else jsonify(item)
+        if request.method == "PUT":
+            item = wm.update(wid, request.get_json(silent=True) or {})
+            return (jsonify({"error": "not found"}), 404) if not item else jsonify(item)
+        return jsonify({"archived": wm.archive(wid)})
+
+    @app.route("/api/v1/workspaces/<wid>/export", methods=["POST"])
+    def export_workspace(wid: str):
+        from flask import Response
+        from framework.core.workspace_manager import get_workspace_manager
+        payload = get_workspace_manager().export_zip(wid)
+        return Response(payload, mimetype="application/zip", headers={"Content-Disposition": f"attachment; filename={wid}.zip"})
+
+    @app.route("/api/v1/evidence", methods=["GET", "POST"])
+    def evidence_collection():
+        from flask import request
+        from framework.core.evidence_vault import get_evidence_vault
+        ev = get_evidence_vault()
+        if request.method == "GET":
+            return jsonify(ev.list(workspace_id=request.args.get("workspace_id")))
+        data = request.get_json(silent=True) or {}
+        if data.get("type") == "url_snapshot":
+            return jsonify(ev.add_url_snapshot(data["workspace_id"], data["url"], data))
+        return jsonify(ev.add_file(data["workspace_id"], data["file_path"], data))
+
+    @app.route("/api/v1/evidence/<eid>", methods=["GET", "DELETE"])
+    def evidence_item(eid: str):
+        from framework.core.evidence_vault import get_evidence_vault
+        item = get_evidence_vault().get(eid)
+        return (jsonify(item), 404) if not item else jsonify(item)
+
+    @app.route("/api/v1/evidence/<eid>/hash_verify", methods=["POST"])
+    def verify_evidence(eid: str):
+        from framework.core.evidence_vault import get_evidence_vault
+        return jsonify(get_evidence_vault().verify_integrity(eid))
+
+    @app.route("/api/v1/evidence/<eid>/chain")
+    def evidence_chain(eid: str):
+        from framework.core.evidence_vault import get_evidence_vault
+        return jsonify(get_evidence_vault().get_chain(eid))
+
+    @app.route("/api/v1/timeline", methods=["GET"])
+    def timeline_all():
+        from flask import request
+        from framework.core.timeline_engine import get_timeline_engine
+        return jsonify(get_timeline_engine().get_timeline(workspace_id=request.args.get("workspace_id"), entity=request.args.get("entity")))
+
+    @app.route("/api/v1/timeline/events", methods=["POST"])
+    def timeline_add():
+        from flask import request
+        from framework.core.timeline_engine import get_timeline_engine
+        data = request.get_json(silent=True) or {}
+        return jsonify(get_timeline_engine().add_event(data["workspace_id"], data))
+
+    @app.route("/api/v1/timeline/export")
+    def timeline_export():
+        from flask import request
+        from framework.core.timeline_engine import get_timeline_engine
+        fmt = request.args.get("format", "json")
+        wid = request.args.get("workspace_id")
+        if fmt == "csv":
+            return app.response_class(get_timeline_engine().export_csv(wid), mimetype="text/csv")
+        return jsonify(get_timeline_engine().export_json(wid))
+
+    @app.route("/api/v1/agents/investigate", methods=["POST"])
+    def agents_start():
+        from flask import request
+        from framework.core.ai_agent_engine import get_ai_agent_engine
+        data = request.get_json(silent=True) or {}
+        return jsonify(get_ai_agent_engine().start(data["workspace_id"], data["seed"], data.get("mode", "guided"), int(data.get("max_depth", 3))))
+
+    @app.route("/api/v1/agents/<aid>/status")
+    def agents_status(aid: str):
+        from framework.core.ai_agent_engine import get_ai_agent_engine
+        return jsonify(get_ai_agent_engine().status(aid))
+
+    @app.route("/api/v1/agents/<aid>/stop", methods=["POST"])
+    def agents_stop(aid: str):
+        from framework.core.ai_agent_engine import get_ai_agent_engine
+        return jsonify(get_ai_agent_engine().stop(aid))
+
+    @app.route("/api/v1/agents", methods=["GET"])
+    def agents_list():
+        return jsonify(db.fetchall("SELECT * FROM agent_sessions ORDER BY started_at DESC"))
+
+    @app.route("/api/v1/dossiers", methods=["GET", "POST"])
+    def dossiers_collection():
+        from flask import request
+        from framework.core.dossier_engine import get_dossier_engine
+        if request.method == "GET":
+            return jsonify(db.fetchall("SELECT * FROM dossiers ORDER BY generated_at DESC"))
+        data = request.get_json(silent=True) or {}
+        return jsonify(get_dossier_engine().generate(data["workspace_id"], data.get("type", "brief"), data.get("title", "Intelligence Brief"), data.get("format", "html"), data.get("classification", "CONFIDENTIAL")))
+
+    @app.route("/api/v1/plugins", methods=["GET"])
+    def plugins_list():
+        from framework.core.plugin_system import get_plugin_registry
+        reg = get_plugin_registry(); reg.scan_plugins()
+        return jsonify(reg.list_plugins())
+
+    @app.route("/api/v1/plugins/install", methods=["POST"])
+    def plugins_install():
+        from flask import request
+        from framework.core.plugin_system import get_plugin_registry
+        data = request.get_json(silent=True) or {}
+        return jsonify(get_plugin_registry().install_plugin(data["source"]))
+
     return app
 
 def run_dashboard(host=None, port=None):

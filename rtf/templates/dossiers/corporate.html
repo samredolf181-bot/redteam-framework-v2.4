@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8"><title>{{ title }}</title>
+<style>body{font-family:Arial,sans-serif;color:#111;margin:2rem}.banner{background:#111;color:#fff;padding:8px}.card{border:1px solid #ddd;padding:12px;margin:12px 0}</style>
+</head><body>
+<div class="banner">{{ classification }} — {{ title }}</div>
+<h1>{{ workspace.name or 'Workspace' }}</h1>
+<p>Generated: {{ generated_at }}</p>
+<div class="card"><h2>Executive Summary</h2><p>Total Findings: {{ findings|length }} | Entities: {{ entities|length }} | Events: {{ events|length }}</p></div>
+<div class="card"><h2>Findings</h2><ul>{% for f in findings[:50] %}<li>{{ f.title }} — {{ f.severity }}</li>{% endfor %}</ul></div>
+<div class="card"><h2>Timeline</h2><ol>{% for e in events[:50] %}<li>{{ e.timestamp }} — {{ e.description }}</li>{% endfor %}</ol></div>
+</body></html>
