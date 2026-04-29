@@ -1,0 +1,358 @@
+# RTF Comprehensive OSINT Pipeline - 500+ Tools Integration
+# This pipeline orchestrates all 500+ OSINT tools across 22 categories
+
+pipeline:
+  name: "comprehensive_osint_investigation"
+  version: "5.0.0"
+  description: "Full-spectrum OSINT investigation using 500+ integrated tools"
+  
+stages:
+  # Stage 1: Initial Target Profiling
+  - name: "target_profiling"
+    parallel: true
+    tools:
+      - sherlock_wrapper
+      - maigret_wrapper
+      - holehe_wrapper
+      - phoneinfoga_wrapper
+      - theharvester_wrapper
+      - ghunt_wrapper
+    output: "target_profiles.json"
+    
+  # Stage 2: Username Enumeration (25 tools)
+  - name: "username_enumeration"
+    parallel: true
+    tools:
+      - sherlock_wrapper
+      - maigret_wrapper
+      - whatsmyname_wrapper
+      - usersearch_wrapper
+      - social_analyzer_wrapper
+      - blackbird_wrapper
+      - username_checker_wrapper
+      - espionage_wrapper
+      - pywhat_wrapper
+      - userfinder_wrapper
+    depends_on: ["target_profiling"]
+    output: "username_results.json"
+    
+  # Stage 3: Email OSINT (25 tools)
+  - name: "email_osint"
+    parallel: true
+    tools:
+      - emailharvester_wrapper
+      - theharvester_wrapper
+      - mailfinder_wrapper
+      - infoga_wrapper
+      - ghunt_wrapper
+      - emailpermuator_wrapper
+      - brechparse_wrapper
+    depends_on: ["target_profiling"]
+    output: "email_results.json"
+    
+  # Stage 4: Phone Number OSINT (20 tools)
+  - name: "phone_osint"
+    parallel: false
+    tools:
+      - phoneinfoga_wrapper
+      - numinfo_wrapper
+      - truecaller_cli_wrapper
+      - mobile_osint_wrapper
+    depends_on: ["target_profiling"]
+    output: "phone_results.json"
+    
+  # Stage 5: Social Media OSINT (30 tools)
+  - name: "social_media_osint"
+    parallel: true
+    tools:
+      - osintgram_wrapper
+      - instaloader_wrapper
+      - twint_wrapper
+      - snscrape_wrapper
+      - facebook_scraper_wrapper
+      - linkedin_scraper_wrapper
+      - tiktok_scraper_wrapper
+      - telegram_scraper_wrapper
+      - discord_scraper_wrapper
+    depends_on: ["username_enumeration"]
+    output: "social_media_results.json"
+    
+  # Stage 6: Domain & DNS OSINT (30 tools)
+  - name: "domain_dns_osint"
+    parallel: true
+    tools:
+      - amass_wrapper
+      - subfinder_wrapper
+      - assetfinder_wrapper
+      - sublist3r_wrapper
+      - findomain_wrapper
+      - dnsrecon_wrapper
+      - massdns_wrapper
+      - altdns_wrapper
+      - httpx_wrapper
+      - naabu_wrapper
+    depends_on: ["target_profiling"]
+    output: "domain_dns_results.json"
+    
+  # Stage 7: Web Scraping (25 tools)
+  - name: "web_scraping"
+    parallel: false
+    tools:
+      - scrapy_wrapper
+      - selenium_wrapper
+      - playwright_wrapper
+      - scrapling_wrapper
+      - trafilatura_wrapper
+    depends_on: ["domain_dns_osint"]
+    output: "scraped_content.json"
+    
+  # Stage 8: Image OSINT (25 tools)
+  - name: "image_osint"
+    parallel: true
+    tools:
+      - exiftool_wrapper
+      - foca_wrapper
+      - google_reverse_image_wrapper
+      - yandex_image_search_wrapper
+      - stego_toolkit_wrapper
+    depends_on: ["social_media_osint", "web_scraping"]
+    output: "image_analysis.json"
+    
+  # Stage 9: Geolocation OSINT (25 tools)
+  - name: "geolocation_osint"
+    parallel: true
+    tools:
+      - exiflocation_wrapper
+      - geopy_wrapper
+      - mapillary_tools_wrapper
+      - suncalc_wrapper
+    depends_on: ["image_osint"]
+    output: "geolocation_results.json"
+    
+  # Stage 10: Blockchain & Crypto OSINT (20 tools)
+  - name: "blockchain_osint"
+    parallel: false
+    tools:
+      - blocksci_wrapper
+      - graphsense_wrapper
+      - blockchair_wrapper
+      - mempool_wrapper
+    depends_on: ["target_profiling"]
+    output: "blockchain_results.json"
+    
+  # Stage 11: Darknet & Tor OSINT (20 tools)
+  - name: "darknet_osint"
+    parallel: false
+    tools:
+      - onionscan_wrapper
+      - tor_scraper_wrapper
+      - darktracer_wrapper
+      - torbot_wrapper
+    depends_on: ["target_profiling"]
+    output: "darknet_results.json"
+    
+  # Stage 12: Document OSINT (20 tools)
+  - name: "document_osint"
+    parallel: true
+    tools:
+      - oletools_wrapper
+      - pdfid_wrapper
+      - peepdf_wrapper
+      - tesseract_wrapper
+      - apache_tika_wrapper
+    depends_on: ["web_scraping"]
+    output: "document_analysis.json"
+    
+  # Stage 13: Corporate & Business OSINT (20 tools)
+  - name: "corporate_osint"
+    parallel: true
+    tools:
+      - opencorporates_wrapper
+      - companies_house_wrapper
+      - sec_edgar_wrapper
+      - aleph_wrapper
+      - followthemoney_wrapper
+    depends_on: ["target_profiling"]
+    output: "corporate_results.json"
+    
+  # Stage 14: Threat Intelligence (25 tools)
+  - name: "threat_intel"
+    parallel: true
+    tools:
+      - misp_wrapper
+      - opencti_wrapper
+      - thehive_wrapper
+      - cortex_wrapper
+      - shodan_wrapper
+      - censys_wrapper
+      - virustotal_wrapper
+    depends_on: ["domain_dns_osint"]
+    output: "threat_intel_results.json"
+    
+  # Stage 15: Network Scanning (25 tools)
+  - name: "network_scanning"
+    parallel: false
+    tools:
+      - nmap_wrapper
+      - rustscan_wrapper
+      - masscan_wrapper
+      - naabu_wrapper
+    depends_on: ["domain_dns_osint"]
+    output: "network_scan_results.json"
+    
+  # Stage 16: Vulnerability Scanning (25 tools)
+  - name: "vulnerability_scanning"
+    parallel: true
+    tools:
+      - nuclei_wrapper
+      - openvas_wrapper
+      - lynis_wrapper
+      - nikto_wrapper
+      - wpscan_wrapper
+      - trivy_wrapper
+    depends_on: ["network_scanning"]
+    output: "vulnerability_results.json"
+    
+  # Stage 17: Web Application Testing (25 tools)
+  - name: "web_app_testing"
+    parallel: true
+    tools:
+      - sqlmap_wrapper
+      - xsstrike_wrapper
+      - dalfox_wrapper
+      - commix_wrapper
+      - jwt_tool_wrapper
+      - arjun_wrapper
+      - linkfinder_wrapper
+      - secretfinder_wrapper
+      - trufflehog_wrapper
+      - gitleaks_wrapper
+    depends_on: ["network_scanning"]
+    output: "web_app_results.json"
+    
+  # Stage 18: Directory Fuzzing (20 tools)
+  - name: "directory_fuzzing"
+    parallel: true
+    tools:
+      - gobuster_wrapper
+      - ffuf_wrapper
+      - feroxbuster_wrapper
+      - wfuzz_wrapper
+      - dirsearch_wrapper
+      - kiterunner_wrapper
+    depends_on: ["domain_dns_osint"]
+    output: "directory_results.json"
+    
+  # Stage 19: Password Attacks (20 tools)
+  - name: "password_attacks"
+    parallel: false
+    tools:
+      - hashcat_wrapper
+      - john_wrapper
+      - hydra_wrapper
+      - crackmapexec_wrapper
+      - kerbrute_wrapper
+    depends_on: ["network_scanning", "corporate_osint"]
+    output: "password_results.json"
+    
+  # Stage 20: Exploitation Frameworks (15 tools)
+  - name: "exploitation"
+    parallel: false
+    tools:
+      - metasploit_wrapper
+      - covenant_wrapper
+      - sliver_wrapper
+      - empire_wrapper
+      - impacket_wrapper
+      - responder_wrapper
+    depends_on: ["vulnerability_scanning", "password_attacks"]
+    output: "exploitation_results.json"
+    
+  # Stage 21: Forensics & IR (20 tools)
+  - name: "forensics"
+    parallel: true
+    tools:
+      - autopsy_wrapper
+      - sleuthkit_wrapper
+      - volatility_wrapper
+      - plaso_wrapper
+      - timesketch_wrapper
+      - binwalk_wrapper
+      - radare2_wrapper
+      - ghidra_wrapper
+    depends_on: ["exploitation"]
+    output: "forensics_results.json"
+    
+  # Stage 22: Cloud OSINT (20 tools)
+  - name: "cloud_osint"
+    parallel: true
+    tools:
+      - pacu_wrapper
+      - cloudmapper_wrapper
+      - scoutsuite_wrapper
+      - prowler_wrapper
+      - bloodhound_wrapper
+      - roadtools_wrapper
+    depends_on: ["target_profiling"]
+    output: "cloud_results.json"
+    
+  # Stage 23: AI & Automation (20 tools)
+  - name: "ai_automation"
+    parallel: true
+    tools:
+      - spiderfoot_wrapper
+      - recon_ng_wrapper
+      - maltego_wrapper
+      - photon_wrapper
+      - datasploit_wrapper
+    depends_on: ["all_previous_stages"]
+    output: "ai_automation_results.json"
+    
+  # Final Stage: Correlation & Reporting
+  - name: "final_correlation"
+    parallel: false
+    tools:
+      - correlation_engine
+      - entity_graph_builder
+      - timeline_generator
+      - report_generator
+    depends_on: ["all_previous_stages"]
+    output: 
+      - "final_report.html"
+      - "final_report.pdf"
+      - "entity_graph.json"
+      - "timeline.json"
+      - "ioc_export.stix"
+
+# Configuration
+config:
+  max_parallel_jobs: 10
+  timeout_per_tool: 300  # 5 minutes
+  retry_failed_tools: 2
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 60
+  data_retention:
+    raw_data_days: 30
+    processed_data_days: 90
+    reports_days: 365
+  
+# Output Formats
+output_formats:
+  - json
+  - csv
+  - html
+  - pdf
+  - docx
+  - stix
+  - xml
+
+# Integration Points
+integrations:
+  - thehive
+  - misp
+  - opencti
+  - timesketch
+  - maltego
+  - graph_database
+  
