@@ -15,6 +15,12 @@ Usage:
   rtf findings                   — Show recent findings
   rtf report [fmt] [output]      — Generate a report
   rtf version                    — Print version
+  
+  MASSIVE AUTOMATIC INVESTIGATION PIPELINE:
+  rtf investigate -u "username" -d "domain" -p "phone" --active-investigation -o ~/results
+  rtf investigate --target "example.com" --comprehensive -o ./output
+  rtf investigate --email "user@example.com" --full-stack -o ./results
+  rtf investigate -d "target.com" --ai-autonomous -o ./ai_results
 """
 from __future__ import annotations
 
@@ -210,6 +216,53 @@ def cmd_version(_args: argparse.Namespace) -> None:
     print("Enterprise RedTeam Platform — For Authorized Testing Only")
 
 
+def cmd_investigate(args: argparse.Namespace) -> None:
+    """Run the massive automatic investigation pipeline."""
+    _init_framework()
+    
+    # Import investigation module
+    from investigate import MassiveInvestigationPipeline, run_investigation
+    
+    # Build targets dictionary
+    targets = {}
+    if args.username:
+        targets["username"] = args.username
+    if args.domain:
+        targets["domain"] = args.domain
+    if args.email:
+        targets["email"] = args.email
+    if args.phone:
+        targets["phone"] = args.phone
+    if args.ip:
+        targets["ip"] = args.ip
+    if args.url:
+        targets["url"] = args.url
+    
+    if not targets:
+        print("[ERROR] No targets specified. Use -u, -d, -e, -p, -i, --url, or --target")
+        sys.exit(1)
+    
+    # Determine profile
+    profile = args.profile
+    if args.comprehensive:
+        profile = "comprehensive"
+    elif args.full_stack or args.active_investigation:
+        profile = "aggressive"
+    elif args.passive_only:
+        profile = "core"
+    elif args.ai_autonomous:
+        profile = "ai_autonomous"
+    
+    # Configure options
+    options = {
+        "enable_credential_attacks": args.enable_credential_attacks,
+        "enable_exploitation": args.enable_exploitation,
+    }
+    
+    # Run investigation
+    asyncio.run(run_investigation(args))
+
+
 # ── Argument parser ───────────────────────────────────────────────────────────
 
 def build_parser() -> argparse.ArgumentParser:
@@ -263,21 +316,56 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--output", default="")
 
     subs.add_parser("version")
+    
+    # Investigation command (massive automatic pipeline)
+    inv_p = subs.add_parser("investigate", help="Run massive automatic investigation pipeline")
+    inv_p.add_argument("-u", "--username", default="", help="Username to investigate")
+    inv_p.add_argument("-d", "--domain", default="", help="Domain to investigate")
+    inv_p.add_argument("-e", "--email", default="", help="Email address to investigate")
+    inv_p.add_argument("-p", "--phone", default="", help="Phone number to investigate")
+    inv_p.add_argument("-i", "--ip", default="", help="IP address to investigate")
+    inv_p.add_argument("--url", default="", help="URL to investigate")
+    inv_p.add_argument("--target", default="", help="Generic target (will auto-detect type)")
+    inv_p.add_argument("--comprehensive", action="store_true", help="Run comprehensive investigation")
+    inv_p.add_argument("--full-stack", action="store_true", help="Run full-stack investigation")
+    inv_p.add_argument("--active-investigation", action="store_true", help="Enable active scanning")
+    inv_p.add_argument("--passive-only", action="store_true", help="Run only passive recon")
+    inv_p.add_argument("--ai-autonomous", action="store_true", help="Use AI autonomous agent")
+    inv_p.add_argument("-o", "--output", default="./investigation_results", help="Output directory")
+    inv_p.add_argument("--no-reports", action="store_true", help="Disable report generation")
+    inv_p.add_argument("--no-save-raw", action="store_true", help="Disable saving raw output")
+    inv_p.add_argument("--sequential", action="store_true", help="Run tools sequentially")
+    inv_p.add_argument("--max-concurrency", type=int, default=10, help="Max concurrent executions")
+    inv_p.add_argument("--enable-credential-attacks", action="store_true", help="Enable credential attacks")
+    inv_p.add_argument("--enable-exploitation", action="store_true", help="Enable exploitation")
+    inv_p.add_argument("--skip-installed-check", action="store_true", help="Skip tool install check")
+    inv_p.add_argument("--profile", default="comprehensive", choices=["core", "comprehensive", "full", "aggressive", "ai_autonomous"], help="Investigation profile")
+    
     return parser
+
+
+def dispatch():
+    """Dispatch table for commands."""
+    return {
+        "console": cmd_console, "api": cmd_api, "dashboard": cmd_dashboard,
+        "install": cmd_install, "module": cmd_module, "workflow": cmd_workflow,
+        "tools": cmd_tools, "jobs": cmd_jobs, "findings": cmd_findings,
+        "report": cmd_report, "version": cmd_version, "investigate": cmd_investigate,
+    }
 
 
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
-    dispatch = {
+    dispatch_table = {
         "console": cmd_console, "api": cmd_api, "dashboard": cmd_dashboard,
         "install": cmd_install, "module": cmd_module, "workflow": cmd_workflow,
         "tools": cmd_tools, "jobs": cmd_jobs, "findings": cmd_findings,
-        "report": cmd_report, "version": cmd_version,
+        "report": cmd_report, "version": cmd_version, "investigate": cmd_investigate,
     }
     if not args.command:
         parser.print_help(); sys.exit(0)
-    fn = dispatch.get(args.command)
+    fn = dispatch_table.get(args.command)
     if fn:
         fn(args)
     else:
